@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Basilisk</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+
+<body class="industrial-ui">
+    <div id="app">
+        <header class="top-bar">
+            <div class="logo">
+                <span class="brand">BASILISK</span>
+            </div>
+
+            <div class="quick-search">
+                <input type="text" id="global-search" placeholder="LOCATE ASSET [ID/SIG]..."
+                    onkeydown="if(event.key === 'Enter') window.TacticalApp.handleGlobalSearch(this.value)">
+            </div>
+
+            <div class="top-controls" style="display: flex; align-items: center; gap: 1.5rem;">
+                <div class="role-selector">
+                    <div id="user-identity" style="display: none; position: relative;">
+                        <button id="user-menu-btn" class="user-menu-trigger"
+                            onclick="window.TacticalApp.toggleUserMenu(event)">
+                            <span id="current-user-rank">COMMANDER</span>
+                            <span style="font-size: 0.6rem;">▼</span>
+                        </button>
+                        <div id="user-dropdown" class="user-dropdown">
+                            <div class="menu-item disabled">ID: CMD-ALPHA-01</div>
+                            <div class="menu-item" onclick="alert('SYSTEM SETTINGS LOCKED')">SETTINGS</div>
+                            <div class="menu-item danger" onclick="window.TacticalApp.logout()">SYSTEM LOGOUT</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="system-status">
+                    <div class="clock" id="clock">00:00:00 UTC</div>
+                </div>
+            </div>
+        </header>
+
+        <div id="login-overlay" class="login-screen">
+            <div class="login-container">
+                <h1 class="brand" style="font-size: 2rem; margin-bottom: 2rem;">BASILISK</h1>
+
+                <div class="login-grid">
+                    <div class="login-card" onclick="window.TacticalApp.requestCommanderAuth()">
+                        <div class="card-icon">◈</div>
+                        <div class="card-title">COMMANDER</div>
+                        <div class="card-desc">Full Command & Control Access</div>
+                    </div>
+
+                    <div class="login-card" onclick="window.TacticalApp.showSquadSelection()">
+                        <div class="card-icon">◆</div>
+                        <div class="card-title">SQUAD LEADER</div>
+                        <div class="card-desc">Unit Management & Field Ops</div>
+                    </div>
+
+                    <div class="login-card" onclick="window.TacticalApp.login('OBSERVER')">
+                        <div class="card-icon">○</div>
+                        <div class="card-title">OBSERVER</div>
+                        <div class="card-desc">Tactical Monitoring Only</div>
+                    </div>
+                </div>
+
+                <div id="squad-select-panel"
+                    style="display: none; margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 1rem; width: 100%;">
+                    <div class="label" style="text-align: center; margin-bottom: 1rem;">SELECT SQUADRON</div>
+                    <div class="button-group" id="login-squad-list" style="justify-content: center;">
+                        <!-- Injected JS -->
+                    </div>
+                    <button class="action-btn secondary" style="margin-top: 1rem; width: auto;"
+                        onclick="window.TacticalApp.hideSquadSelection()">CANCEL</button>
+                </div>
+
+                <div id="commander-auth-panel"
+                    style="display: none; margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 1rem; width: 100%;">
+                    <div class="label"
+                        style="text-align: center; margin-bottom: 0.5rem; color: var(--accent-red); font-weight: bold; letter-spacing: 1px;">
+                        SECURITY CLEARANCE REQUIRED</div>
+                    <div
+                        style="display: flex; gap: 0.5rem; justify-content: center; align-items: center; margin-bottom: 0.5rem;">
+                        <input type="password" id="commander-password" class="tactical-input"
+                            style="width: 200px; margin: 0;" placeholder="ENTER PASSCODE...">
+                        <button class="action-btn" style="width: auto; margin:0;"
+                            onclick="window.TacticalApp.submitCommanderAuth()">UNLOCK</button>
+                    </div>
+                    <div id="auth-error" class="label danger" style="text-align: center; display: none;">ACCESS DENIED -
+                        INVALID CREDENTIALS</div>
+                    <button class="action-btn secondary" style="margin-top: 1rem; width: auto;"
+                        onclick="window.TacticalApp.cancelAuth()">CANCEL</button>
+                </div>
+            </div>
+        </div>
+
+        <main class="viewport">
+            <aside class="sidebar left">
+                <section class="panel">
+                    <div class="panel-header" onclick="window.TacticalApp.togglePanel(this)">ASSET OVERVIEW</div>
+                    <div class="subtabs" id="unit-tabs">
+                        <button id="utab-active" class="subtab active"
+                            onclick="window.TacticalApp.setUnitTab('ACTIVE')">ACTIVE</button>
+                        <button id="utab-losses" class="subtab"
+                            onclick="window.TacticalApp.setUnitTab('LOSSES')">LOSSES</button>
+                    </div>
+                    <div class="panel-content" style="display:flex; flex-direction:column; padding:0; height: 100%;">
+                        <div id="unit-list" style="padding: 1rem; flex:1; overflow-y:auto;">
+                            <!-- Units will be injected here -->
+                        </div>
+                        <div class="commander-only"
+                            style="padding: 15px; border-top: 1px solid var(--border-color); background: rgba(0,0,0,0.2);">
+                            <button id="add-unit" class="action-btn"
+                                style="width: 100%; margin: 0; background: transparent; border: 1px dashed var(--accent-cyan); color: var(--accent-cyan); opacity: 0.8; height: 40px; display: flex; align-items: center; justify-content: center;">
+                                <span style="margin-right:8px; font-weight:bold; font-size: 1.2em;">+</span> DEPLOY NEW
+                                ASSET
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Commander Ops Panel 1: Directives -->
+                <section class="panel commands commander-only" id="commander-panel">
+                    <div class="panel-header">COMMAND DIRECTIVES</div>
+                    <div class="panel-content">
+                        <div class="input-group">
+                            <label class="label">TASK TITLE</label>
+                            <input type="text" id="task-title" placeholder="ENTER DIRECTIVE..." class="tactical-input">
+                        </div>
+                        <div class="input-group">
+                            <label class="label">PRIORITY</label>
+                            <select id="task-priority" class="tactical-select">
+                                <option value="HIGH">HIGH</option>
+                                <option value="MEDIUM" selected>MEDIUM</option>
+                                <option value="LOW">LOW</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label class="label">ASSIGN TO SQUAD</label>
+                            <select id="task-squad" class="tactical-select">
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                        <div class="button-group" style="margin-top: 5px;">
+                            <button class="action-btn" onclick="submitDirective()">ISSUE DIRECTIVE</button>
+                        </div>
+
+                        <div class="divider"></div>
+
+                        <div class="input-group">
+                            <label class="label">NEW SQUAD ID</label>
+                            <input type="text" id="new-squad-name" placeholder="SQUAD NAME..." class="tactical-input">
+                        </div>
+                        <div class="button-group" style="margin-top: 5px;">
+                            <button class="action-btn secondary" onclick="createNewSquad()">CREATE SQUAD</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Commander Ops Panel 2: Tactical -->
+                <section class="panel commands commander-only" id="commander-tactical">
+                    <div class="panel-header">TACTICAL OPERATIONS</div>
+                    <div class="panel-content">
+                        <div class="button-group">
+                            <button class="action-btn" id="execute-orders">EXECUTE ORDERS</button>
+                            <button class="action-btn secondary" id="clear-orders">CLEAR STAGED</button>
+                        </div>
+
+
+                    </div>
+                </section>
+
+                <!-- Commander Ops Panel 3: Systems -->
+                <section class="panel commands commander-only" id="commander-systems">
+                    <div class="panel-header">SYSTEMS CONTROL</div>
+                    <div class="panel-content">
+                        <div class="button-group">
+                            <button class="action-btn secondary" id="gen-topo">GEN TOPO</button>
+                        </div>
+                        <label class="action-btn load-map-label">
+                            LOAD BATTLE MAP
+                            <input type="file" id="load-map" accept="image/*" hidden>
+                        </label>
+                    </div>
+                </section>
+
+                <!-- Squad Ops Panel -->
+                <section class="panel commands" id="squad-panel" style="display: none;">
+                    <div class="panel-header">SQUAD OPERATIONS</div>
+                    <div class="panel-content">
+                        <div class="button-group">
+                            <button class="action-btn" onclick="window.TacticalApp.submitSquadRequests()">SUBMIT
+                                REQUESTS</button>
+                            <button class="action-btn secondary" onclick="window.TacticalApp.clearSquadOrders()">CLEAR
+                                PLANNED</button>
+                        </div>
+                        <div class="divider"></div>
+                        <label class="label">SIGNAL COLOR</label>
+                        <div class="color-picker-grid">
+                            <button class="color-btn" style="background: #00f2ff;"
+                                onclick="setSquadColor('#00f2ff')"></button>
+                            <button class="color-btn" style="background: #ffb400;"
+                                onclick="setSquadColor('#ffb400')"></button>
+                            <button class="color-btn" style="background: #ff4d4d;"
+                                onclick="setSquadColor('#ff4d4d')"></button>
+                            <button class="color-btn" style="background: #00ff95;"
+                                onclick="setSquadColor('#00ff95')"></button>
+                            <button class="color-btn" style="background: #b500ff;"
+                                onclick="setSquadColor('#b500ff')"></button>
+                        </div>
+                    </div>
+                </section>
+            </aside>
+
+            <section class="map-container">
+                <div class="map-overlay">
+                    <div class="grid-overlay"></div>
+                </div>
+                <svg id="tactical-map" viewBox="0 0 1000 1000">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="var(--accent-cyan)" />
+                        </marker>
+                        <marker id="staged-arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5"
+                            orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="var(--accent-amber)" />
+                        </marker>
+                        <marker id="request-arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5"
+                            orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="#d946ef" />
+                        </marker>
+                    </defs>
+                    <g id="map-background-layer"></g>
+                    <g id="terrain-layer"></g>
+                    <g id="paths-layer"></g>
+                    <g id="units-layer"></g>
+                </svg>
+
+                <div class="interaction-hint" id="interaction-hint">
+                    [L-CLICK] SELECT / ASSIGN MOVE | [LIST] CLICK ASSET TO START STAGING
+                </div>
+            </section>
+
+            <aside class="sidebar right">
+                <section class="panel orders">
+                    <div class="panel-header" onclick="window.TacticalApp.togglePanel(this)">TACTICAL LOG</div>
+                    <div class="subtabs" id="tasks-tabs">
+                        <button id="tab-active" class="subtab active"
+                            onclick="window.TacticalApp.setTaskTab('ACTIVE')">ACTIVE</button>
+                        <button id="tab-history" class="subtab"
+                            onclick="window.TacticalApp.setTaskTab('HISTORY')">HISTORY</button>
+                    </div>
+                    <div class="panel-content" id="tasks-container">
+                        <!-- Tasks will be rendered here -->
+                    </div>
+                </section>
+                <section class="panel detail">
+                    <div class="panel-header">UNIT DATA</div>
+                    <div id="unit-detail" class="panel-content empty">
+                        SELECT A UNIT TO VIEW TELEMETRY
+                    </div>
+                </section>
+                <section class="panel intel">
+                    <div class="panel-header">INTELLIGENCE FEED</div>
+                    <div class="panel-content log-window" id="intel-feed">
+                        <div class="log-entry">[INFO] SYSTEM INITIALIZED</div>
+                        <div class="log-entry">[INFO] CONNECTING TO RSI SATELLITE NETWORK...</div>
+                    </div>
+                </section>
+            </aside>
+        </main>
+
+        <script>
+            // Helper functions for UI that call into the App
+            function submitDirective() {
+                const titleInput = document.getElementById('task-title');
+                const prioritySelect = document.getElementById('task-priority');
+                const squadSelect = document.getElementById('task-squad');
+
+                if (titleInput.value && squadSelect.value && window.TacticalApp) {
+                    const task = window.TacticalApp.store.addTask(
+                        titleInput.value,
+                        prioritySelect.value,
+                        squadSelect.value
+                    );
+                    window.TacticalApp.logIntel(`[CMD] TASK CREATED FOR ${squadSelect.value}: ${task.title}`, 'warning');
+                    titleInput.value = '';
+                }
+            }
+
+            function createNewSquad() {
+                const nameInput = document.getElementById('new-squad-name');
+                if (nameInput.value && window.TacticalApp) {
+                    const squadId = nameInput.value.toUpperCase().replace(/\s+/g, '-');
+                    const randomColor = '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
+                    window.TacticalApp.store.addSquad(squadId, randomColor);
+                    window.TacticalApp.logIntel(`[CMD] NEW SQUAD ESTABLISHED: ${squadId}`, 'info');
+                    nameInput.value = '';
+                }
+            }
+
+            function acknowledgeTask(taskId) {
+                if (window.TacticalApp) {
+                    window.TacticalApp.store.updateTaskStatus(taskId, 'ACKNOWLEDGED');
+                    window.TacticalApp.logIntel(`[ACK] TASK ACKNOWLEDGED`, 'info');
+                }
+            }
+
+            function completeTask(taskId) {
+                if (window.TacticalApp) {
+                    window.TacticalApp.store.updateTaskStatus(taskId, 'COMPLETE');
+                    window.TacticalApp.logIntel(`[DONE] TASK COMPLETED`, 'info');
+                }
+            }
+
+            function deleteTask(taskId) {
+                if (window.TacticalApp) {
+                    window.TacticalApp.store.deleteTask(taskId);
+                    window.TacticalApp.logIntel(`[CMD] TASK DELETED`, 'danger');
+                }
+            }
+
+            function setSquadColor(color) {
+                if (window.TacticalApp) {
+                    const squad = window.TacticalApp.currentRole.replace('SQUAD-', '');
+                    window.TacticalApp.store.setSquadColor(squad, color);
+                }
+            }
+        </script>
+
+        <footer class="bottom-bar">
+            <div class="coordinates">
+                COORD: <span id="mouse-coords">000.00, 000.00</span>
+            </div>
+            <div class="active-ops">
+                OP: <span class="op-name">POLAR STAR VIGIL</span>
+            </div>
+        </footer>
+    </div>
+    <script type="module" src="/main.js"></script>
+</body>
+
+</html>
